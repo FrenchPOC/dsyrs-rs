@@ -1,0 +1,40 @@
+[package]
+name = "dsyrs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Axel Chabot <axel.chabot@lefrenchpoc.fr>"]
+description = "Rust library for DSY-RS low voltage servo drive controller with Modbus RTU"
+license = "MIT"
+keywords = ["modbus", "servo", "motor", "dsy-rs", "rtu"]
+categories = ["embedded", "hardware-support"]
+repository = "https://github.com/FrenchPOC/dsyrs-rs"
+readme = "README.md"
+
+[features]
+default = []
+modbus-delay = []
+
+[dependencies]
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["rtu", "rtu-sync"] }
+tokio-serial = "5.4.5"
+thiserror = "2.0.17"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[lib]
+name = "dsyrs"
+path = "src/lib.rs"
+
+[[example]]
+name = "async_example"
+path = "examples/async_example.rs"
+
+[[example]]
+name = "sync_example"
+path = "examples/sync_example.rs"
+
+[[example]]
+name = "multiple_servos"
+path = "examples/multiple_servos.rs"
