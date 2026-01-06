@@ -3,9 +3,9 @@ name = "dsyrs"
 version = "0.1.0"
 edition = "2021"
 authors = ["Axel Chabot <axel.chabot@lefrenchpoc.fr>"]
-description = "Rust library for DSY-RS low voltage servo drive controller with Modbus RTU"
+description = "Rust library for DSY-RS low voltage servo drive controller with Modbus RTU - Interoperable with em2rs"
 license = "MIT"
-keywords = ["modbus", "servo", "motor", "dsy-rs", "rtu"]
+keywords = ["modbus", "servo", "motor", "dsy-rs", "rtu", "em2rs"]
 categories = ["embedded", "hardware-support"]
 repository = "https://github.com/FrenchPOC/dsyrs-rs"
 readme = "README.md"
@@ -22,6 +22,8 @@ thiserror = "2.0.17"
 
 [dev-dependencies]
 tokio-test = "0.4"
+# Uncomment to test interoperability with em2rs:
+# em2rs = { path = "../em2rs-rs" }
 
 [lib]
 name = "dsyrs"
@@ -38,3 +40,7 @@ path = "examples/sync_example.rs"
 [[example]]
 name = "multiple_servos"
 path = "examples/multiple_servos.rs"
+
+[[example]]
+name = "sync_interop_example"
+path = "examples/sync_interop_example.rs"

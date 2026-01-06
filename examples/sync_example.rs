@@ -1,7 +1,7 @@
 //! Synchronous example for DSY-RS servo drive controller
 //!
 //! This example demonstrates:
-//! - Connecting using the synchronous client
+//! - Connecting using the synchronous client with tokio-modbus sync API
 //! - Reading and displaying status
 //! - Speed control operations
 //! - Position control with multi-segment
@@ -11,7 +11,9 @@
 use dsyrs::{
     DsyrsSyncClient, ServoConfig, ControlMode, Direction, JogConfig,
     SegmentConfig, MultiSegOperationMode, MultiSegPositionMode, ServoState,
+    Slave,
 };
+use tokio_modbus::prelude::client;
 use std::thread;
 use std::time::Duration;
 
@@ -26,6 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Connecting to {} at {} baud, slave ID {}...", port_name, baud_rate, slave_id);
 
+    // Create serial port builder
+    let builder = tokio_serial::new(port_name, baud_rate);
+    
+    // Connect to slave via tokio-modbus sync API
+    let ctx = client::sync::rtu::connect_slave(&builder, Slave::from(slave_id))?;
+
     // Create servo configuration for position control
     let config = ServoConfig::new(slave_id)
         .with_control_mode(ControlMode::Position)
@@ -33,8 +41,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_speed(3000)
         .with_rated_current(3.0);
 
-    // Connect using synchronous client
-    let mut servo = DsyrsSyncClient::connect(port_name, baud_rate, config)?;
+    // Create synchronous client with context
+    let mut servo = DsyrsSyncClient::new(ctx, config);
     
     // Initialize servo with configuration
     println!("Initializing servo drive...");

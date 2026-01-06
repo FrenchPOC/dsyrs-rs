@@ -14,6 +14,7 @@ Based on **DSY-RS Series Low Voltage Servo Drive User Manual - Chapter 7 Paramet
 - **Digital I/O** - Configure DI1-DI3 inputs and DO1-DO2 outputs
 - **Real-time Status** - Read speed, position, torque, current, voltage
 - **Multi-Servo Support** - Control multiple servos on the same RS-485 bus
+- **🆕 EM2RS Interoperability** - Share the same RS-485 bus with EM2RS stepper motor controllers
 
 ## Installation
 
@@ -21,10 +22,9 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dsyrs = { path = "path/to/dsyrs-rs" }
-tokio = { version = "1", features = ["full"] }
-tokio-serial = "5.4"
-tokio-modbus = "0.17"
+dsyrs = { git = "https://github.com/FrenchPOC/dsyrs-rs" }
+# Optional: For mixed servo/stepper systems
+# em2rs = { git = "https://github.com/FrenchPOC/em2rs-rs" }
 ```
 
 ## Quick Start
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Configure servo
     let config = ServoConfig::new(1)
         .with_control_mode(ControlMode::Position)
-        .with_direction(Direction::Forward)
+        .with_direction(Direction::CcwForward)
         .with_max_speed(3000);
     
     // Create and initialize client
@@ -83,6 +83,91 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     Ok(())
 }
+```
+
+## 🆕 Interoperability with EM2RS (Stepper Motors)
+
+DSY-RS and EM2RS libraries can share the same RS-485 bus, allowing you to control both servo drives and stepper motors in a unified system.
+
+### Method 1: Context Passing
+
+```rust
+use dsyrs::{DsyrsClient, ServoConfig, ControlMode};
+use dsyrs::rtu::RtuConfig;
+// use em2rs::{Em2rsClient, StepperConfig};  // From em2rs crate
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create shared RTU configuration
+    let rtu_config = RtuConfig::new("/dev/ttyUSB0", 115200);
+    
+    // Create servo on slave ID 1
+    let servo_ctx = dsyrs::rtu::async_utils::create_context_with_config(&rtu_config, 1)?;
+    let servo_config = ServoConfig::new(1).with_control_mode(ControlMode::Position);
+    let mut servo = DsyrsClient::new(servo_ctx, servo_config);
+    servo.init().await?;
+    
+    // Do servo operations...
+    println!("Servo speed: {} rpm", servo.get_speed().await?);
+    
+    // Extract context to use with stepper motor (em2rs)
+    let mut ctx = servo.into_context();
+    
+    // Switch to stepper on slave ID 2
+    ctx.set_slave(tokio_modbus::prelude::Slave::from(2));
+    
+    // Use ctx with em2rs:
+    // let stepper_config = StepperConfig::new(2, 10000);
+    // let mut stepper = Em2rsClient::new(ctx, stepper_config);
+    // stepper.init().await?;
+    
+    Ok(())
+}
+```
+
+### Method 2: Bus Manager
+
+```rust
+use dsyrs::{DsyrsClient, ServoConfig, ControlMode};
+use dsyrs::rtu::{RtuConfig, RtuBusManager};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = RtuConfig::new("/dev/ttyUSB0", 115200).with_timeout(200);
+    let mut bus = RtuBusManager::new(config)?;
+    
+    // Create and use servo (slave 1)
+    {
+        let ctx = bus.get_async_context(1)?;
+        let mut servo = DsyrsClient::new(ctx, ServoConfig::new(1));
+        servo.init().await?;
+        // ... servo operations ...
+    }
+    
+    // Create and use stepper (slave 2)
+    {
+        let ctx = bus.get_async_context(2)?;
+        // let mut stepper = Em2rsClient::new(ctx, StepperConfig::new(2, 10000));
+        // stepper.init().await?;
+        // ... stepper operations ...
+    }
+    
+    Ok(())
+}
+```
+
+### RTU Configuration
+
+Both libraries share the same `RtuConfig` for consistent serial port settings:
+
+```rust
+use dsyrs::rtu::RtuConfig;
+
+let config = RtuConfig::new("/dev/ttyUSB0", 115200)
+    .with_timeout(150)                              // Response timeout (ms)
+    .with_parity(tokio_serial::Parity::None)        // No parity
+    .with_stop_bits(tokio_serial::StopBits::One)    // 1 stop bit
+    .with_data_bits(tokio_serial::DataBits::Eight); // 8 data bits
 ```
 
 ## Parameter Groups
