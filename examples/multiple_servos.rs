@@ -44,6 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ctx.set_slave(Slave::from(slave_id));
         
         // Create configuration for this servo
+        // Note: rated_current, encoder_type, encoder_resolution, and motor_model_code are optional.
+        // If not specified, they will be read from the servo during init().
         let config = ServoConfig::new(slave_id)
             .with_control_mode(ControlMode::Speed)
             .with_direction(Direction::CwForward)

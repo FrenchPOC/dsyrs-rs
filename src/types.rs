@@ -761,12 +761,14 @@ pub struct ServoConfig {
     pub direction: Direction,
     /// Maximum speed (rpm)
     pub max_speed: u16,
-    /// Rated current (A)
-    pub rated_current: f32,
-    /// Encoder type
-    pub encoder_type: EncoderType,
-    /// Encoder resolution (pulses per revolution)
-    pub encoder_resolution: u32,
+    /// Motor model code (P01.00) - read from servo if None
+    pub motor_model_code: Option<u16>,
+    /// Rated current (A) (P01.04) - read from servo if None
+    pub rated_current: Option<f32>,
+    /// Encoder type (P01.18) - read from servo if None
+    pub encoder_type: Option<EncoderType>,
+    /// Encoder resolution (P01.20) - read from servo if None
+    pub encoder_resolution: Option<u32>,
 }
 
 impl ServoConfig {
@@ -777,9 +779,10 @@ impl ServoConfig {
             control_mode: ControlMode::Position,
             direction: Direction::CcwForward,
             max_speed: 4500,
-            rated_current: 3.0,
-            encoder_type: EncoderType::Bit17Incremental,
-            encoder_resolution: 131072, // 17-bit = 2^17
+            motor_model_code: None,
+            rated_current: None,
+            encoder_type: None,
+            encoder_resolution: None,
         }
     }
 
@@ -801,21 +804,27 @@ impl ServoConfig {
         self
     }
 
+    /// Set motor model code
+    pub fn with_motor_model_code(mut self, code: u16) -> Self {
+        self.motor_model_code = Some(code);
+        self
+    }
+
     /// Set rated current
     pub fn with_rated_current(mut self, current: f32) -> Self {
-        self.rated_current = current;
+        self.rated_current = Some(current);
         self
     }
 
     /// Set encoder type
     pub fn with_encoder_type(mut self, encoder: EncoderType) -> Self {
-        self.encoder_type = encoder;
+        self.encoder_type = Some(encoder);
         self
     }
 
     /// Set encoder resolution
     pub fn with_encoder_resolution(mut self, resolution: u32) -> Self {
-        self.encoder_resolution = resolution;
+        self.encoder_resolution = Some(resolution);
         self
     }
 }

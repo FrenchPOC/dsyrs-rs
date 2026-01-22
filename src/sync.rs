@@ -3,28 +3,28 @@
 //! This module provides a native synchronous Modbus RTU client,
 //! compatible with em2rs library for shared bus operation.
 
+use crate::registers;
+use crate::types::*;
 #[cfg(feature = "modbus-delay")]
 use std::thread;
 #[cfg(feature = "modbus-delay")]
 use std::time::Duration;
 use tokio_modbus::prelude::*;
-use crate::registers;
-use crate::types::*;
 
 /// Default delay after modbus requests (1ms)
 #[cfg(feature = "modbus-delay")]
 const MODBUS_DELAY: Duration = Duration::from_millis(1);
 
 /// Synchronous DSY-RS servo drive controller client
-/// 
+///
 /// This client uses tokio-modbus sync API for blocking Modbus RTU communication.
 /// It is designed to be compatible with em2rs for shared bus operation.
-/// 
+///
 /// # Example
 /// ```no_run
 /// use dsyrs::{DsyrsSyncClient, ServoConfig, ControlMode, Slave};
 /// use tokio_modbus::prelude::client;
-/// 
+///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     // Create serial port builder
 ///     let builder = tokio_serial::new("/dev/ttyUSB0", 115200);
@@ -55,16 +55,16 @@ pub struct DsyrsSyncClient {
 
 impl DsyrsSyncClient {
     /// Create a new synchronous DSY-RS client with an existing tokio-modbus sync context
-    /// 
+    ///
     /// # Arguments
     /// * `ctx` - Tokio-modbus sync context (already initialized for RTU communication)
     /// * `config` - Servo configuration including slave ID
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// use dsyrs::{DsyrsSyncClient, ServoConfig, Slave};
     /// use tokio_modbus::prelude::client;
-    /// 
+    ///
     /// let builder = tokio_serial::new("/dev/ttyUSB0", 115200);
     /// let ctx = client::sync::rtu::connect_slave(&builder, Slave::from(1))?;
     /// let config = ServoConfig::new(1);
@@ -80,21 +80,21 @@ impl DsyrsSyncClient {
     }
 
     /// Consume the client and return the underlying Modbus context
-    /// 
+    ///
     /// This is useful when you want to reuse the same physical connection
     /// for multiple devices on the same RS485 bus (e.g., with em2rs stepper motors).
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// use dsyrs::{DsyrsSyncClient, ServoConfig, Slave, SlaveContext};
     /// use tokio_modbus::prelude::client;
-    /// 
+    ///
     /// // Use servo on slave 1
     /// let builder = tokio_serial::new("/dev/ttyUSB0", 115200);
     /// let ctx = client::sync::rtu::connect_slave(&builder, Slave::from(1))?;
     /// let mut servo = DsyrsSyncClient::new(ctx, ServoConfig::new(1));
     /// servo.init()?;
-    /// 
+    ///
     /// // Extract context to use with em2rs stepper on slave 2
     /// let mut ctx = servo.into_context();
     /// ctx.set_slave(Slave::from(2));
@@ -123,23 +123,68 @@ impl DsyrsSyncClient {
     /// Initialize the servo drive with configured parameters
     pub fn init(&mut self) -> Result<()> {
         self.ctx.set_slave(Slave::from(self.slave_id));
-        
+
         // Set control mode (P00.00)
         self.write_register(registers::P00_CONTROL_MODE, self.config.control_mode.into())?;
-        
+
         // Set direction (P00.01)
         self.write_register(registers::P00_DIRECTION, self.config.direction.into())?;
-        
+
         // Set max speed (P00.07)
         self.write_register(registers::P00_MAX_SPEED, self.config.max_speed)?;
-        
-        // Set rated current (P01.04) - unit is 0.01 A
-        let rated_current = (self.config.rated_current * 100.0) as u16;
-        self.write_register(registers::P01_RATED_CURRENT, rated_current)?;
-        
-        // Set encoder type (P01.18)
-        self.write_register(registers::P01_ENCODER_SELECTION, self.config.encoder_type.into())?;
-        
+
+        // Read P01 parameters (all P01 parameters are not writable)
+        // Read motor model code (P01.00)
+        let motor_model = self.read_register(registers::P01_MOTOR_MODEL)?;
+        if let Some(expected_model) = self.config.motor_model_code {
+            if motor_model != expected_model {
+                log::warn!(
+                    "Motor model mismatch: expected {}, read {}",
+                    expected_model,
+                    motor_model
+                );
+            }
+        }
+
+        // Read rated current (P01.04) - unit is 0.01 A
+        let rated_current_raw = self.read_register(registers::P01_RATED_CURRENT)?;
+        let rated_current = rated_current_raw as f32 / 100.0;
+        if let Some(expected_current) = self.config.rated_current {
+            if (rated_current - expected_current).abs() > 0.01 {
+                log::warn!(
+                    "Rated current mismatch: expected {} A, read {} A",
+                    expected_current,
+                    rated_current
+                );
+            }
+        }
+
+        // Read encoder type (P01.18)
+        let encoder_type_raw = self.read_register(registers::P01_ENCODER_SELECTION)?;
+        if let Some(expected_encoder) = self.config.encoder_type {
+            let expected_value: u16 = expected_encoder.into();
+            if encoder_type_raw != expected_value {
+                log::warn!(
+                    "Encoder type mismatch: expected {:?}, read {}",
+                    expected_encoder,
+                    encoder_type_raw
+                );
+            }
+        }
+
+        // Read encoder resolution (P01.20) - stored as two 16-bit registers
+        let resolution_regs = self.read_registers(registers::P01_ENCODER_RESOLUTION, 2)?;
+        let encoder_resolution = ((resolution_regs[0] as u32) << 16) | (resolution_regs[1] as u32);
+        if let Some(expected_resolution) = self.config.encoder_resolution {
+            if encoder_resolution != expected_resolution {
+                log::warn!(
+                    "Encoder resolution mismatch: expected {}, read {}",
+                    expected_resolution,
+                    encoder_resolution
+                );
+            }
+        }
+
         Ok(())
     }
 
@@ -169,6 +214,12 @@ impl DsyrsSyncClient {
         #[cfg(feature = "modbus-delay")]
         thread::sleep(MODBUS_DELAY);
         Ok(data)
+    }
+
+    /// Read a single holding register
+    pub fn read_register(&mut self, addr: u16) -> Result<u16> {
+        let data = self.read_registers(addr, 1)?;
+        Ok(data[0])
     }
 
     /// Write a 32-bit value as two consecutive registers
@@ -225,7 +276,9 @@ impl DsyrsSyncClient {
     /// Set inertia ratio (P00.05, 0-3000, unit: 0.01)
     pub fn set_inertia_ratio(&mut self, ratio: u16) -> Result<()> {
         if ratio > 3000 {
-            return Err(DsyrsError::InvalidParameter("Inertia ratio must be 0-3000".into()));
+            return Err(DsyrsError::InvalidParameter(
+                "Inertia ratio must be 0-3000".into(),
+            ));
         }
         self.write_register(registers::P00_INERTIA_RATIO, ratio)
     }
@@ -233,7 +286,9 @@ impl DsyrsSyncClient {
     /// Set maximum speed (P00.07, 0-10000 rpm)
     pub fn set_max_speed(&mut self, rpm: u16) -> Result<()> {
         if rpm > 10000 {
-            return Err(DsyrsError::InvalidParameter("Max speed must be 0-10000 rpm".into()));
+            return Err(DsyrsError::InvalidParameter(
+                "Max speed must be 0-10000 rpm".into(),
+            ));
         }
         self.write_register(registers::P00_MAX_SPEED, rpm)
     }
@@ -267,7 +322,9 @@ impl DsyrsSyncClient {
     /// Set pole pairs (P01.10, 1-50)
     pub fn set_pole_pairs(&mut self, pairs: u8) -> Result<()> {
         if pairs < 1 || pairs > 50 {
-            return Err(DsyrsError::InvalidParameter("Pole pairs must be 1-50".into()));
+            return Err(DsyrsError::InvalidParameter(
+                "Pole pairs must be 1-50".into(),
+            ));
         }
         self.write_register(registers::P01_POLE_PAIRS, pairs as u16)
     }
@@ -351,7 +408,9 @@ impl DsyrsSyncClient {
     /// Set jog speed (P05.04, 0-9000 rpm)
     pub fn set_jog_speed(&mut self, rpm: u16) -> Result<()> {
         if rpm > 9000 {
-            return Err(DsyrsError::InvalidParameter("Jog speed must be 0-9000 rpm".into()));
+            return Err(DsyrsError::InvalidParameter(
+                "Jog speed must be 0-9000 rpm".into(),
+            ));
         }
         self.write_register(registers::P05_JOG_SPEED, rpm)
     }
@@ -458,7 +517,10 @@ impl DsyrsSyncClient {
         self.set_comm_address(config.address)?;
         self.set_baud_rate(config.baud_rate)?;
         self.set_data_format(config.data_format)?;
-        self.write_register(registers::P10_RS485_ADDRESS_SOURCE, config.address_source.into())
+        self.write_register(
+            registers::P10_RS485_ADDRESS_SOURCE,
+            config.address_source.into(),
+        )
     }
 
     // ========================================================================
@@ -482,7 +544,10 @@ impl DsyrsSyncClient {
 
     /// Clear fault record (P11.09)
     pub fn clear_fault_record(&mut self) -> Result<()> {
-        self.write_register(registers::P11_SYSTEM_INIT, SystemInit::ClearFaultRecord.into())
+        self.write_register(
+            registers::P11_SYSTEM_INIT,
+            SystemInit::ClearFaultRecord.into(),
+        )
     }
 
     /// Reset absolute encoder (P11.06)
@@ -540,7 +605,7 @@ impl DsyrsSyncClient {
             .ok_or(DsyrsError::InvalidSegment(config.segment))?;
         let wait_reg = registers::get_segment_wait_time_register(config.segment)
             .ok_or(DsyrsError::InvalidSegment(config.segment))?;
-        
+
         // Write displacement as 32-bit value
         self.write_i32(disp_reg, config.displacement)?;
         self.write_register(speed_reg, config.speed)?;

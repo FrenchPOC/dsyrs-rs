@@ -41,6 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // - CW forward rotation direction
     // - Max speed 3000 rpm
     // - Rated current 3.0 A
+    // Note: rated_current, encoder_type, encoder_resolution, and motor_model_code are optional.
+    // If not specified, they will be read from the servo during init().
     let config = ServoConfig::new(slave_id)
         .with_control_mode(ControlMode::Position)
         .with_direction(Direction::CwForward)
