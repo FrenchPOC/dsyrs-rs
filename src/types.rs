@@ -11,37 +11,37 @@ use tokio_modbus::ExceptionCode;
 pub enum DsyrsError {
     #[error("Modbus communication error: {0}")]
     Modbus(#[from] std::io::Error),
-    
+
     #[error("Modbus protocol error: {0}")]
     ModbusProtocol(#[from] tokio_modbus::Error),
-    
+
     #[error("Modbus exception: {0:?}")]
     ModbusException(#[from] ExceptionCode),
-    
+
     #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
-    
+
     #[error("Invalid segment ID: {0}. Must be 1-16")]
     InvalidSegment(u8),
-    
+
     #[error("Invalid digital input: {0}. Must be 1-3")]
     InvalidDigitalInput(u8),
-    
+
     #[error("Invalid digital output: {0}. Must be 1-2")]
     InvalidDigitalOutput(u8),
-    
+
     #[error("Operation failed: {0}")]
     OperationFailed(String),
-    
+
     #[error("Servo not ready")]
     ServoNotReady,
-    
+
     #[error("Timeout waiting for operation")]
     Timeout,
-    
+
     #[error("I/O error: {0}")]
     IoError(String),
-    
+
     #[error("Serial port error: {0}")]
     SerialError(String),
 }
@@ -78,7 +78,10 @@ impl TryFrom<u16> for ControlMode {
             0 => Ok(ControlMode::Position),
             1 => Ok(ControlMode::Speed),
             2 => Ok(ControlMode::Torque),
-            _ => Err(DsyrsError::InvalidParameter(format!("Invalid control mode: {}", value))),
+            _ => Err(DsyrsError::InvalidParameter(format!(
+                "Invalid control mode: {}",
+                value
+            ))),
         }
     }
 }
@@ -215,44 +218,88 @@ pub enum DiFunction {
     /// No function assigned
     #[default]
     None = 0,
-    /// Servo ON (FunIN.1)
-    ServoOn = 1,
-    /// Alarm reset (FunIN.2)
-    AlarmReset = 2,
-    /// Positive overtravel (FunIN.3)
-    PositiveOvertravel = 3,
-    /// Negative overtravel (FunIN.4)
-    NegativeOvertravel = 4,
-    /// Zero signal (origin) (FunIN.5)
-    ZeroSignal = 5,
-    /// Gain switching (FunIN.6)
-    GainSwitch = 6,
-    /// Position deviation clear (FunIN.7)
-    DeviationClear = 7,
-    /// Emergency stop (FunIN.8)
-    EmergencyStop = 8,
-    /// Inhibit (FunIN.9)
-    Inhibit = 9,
-    /// Forward jog (FunIN.10)
-    ForwardJog = 10,
-    /// Reverse jog (FunIN.11)
-    ReverseJog = 11,
-    /// Torque limit switch (FunIN.12)
-    TorqueLimitSwitch = 12,
-    /// Speed limit switch (FunIN.13)
-    SpeedLimitSwitch = 13,
-    /// Multi-segment position bit 0 (FunIN.14)
-    MultiSegBit0 = 14,
-    /// Multi-segment position bit 1 (FunIN.15)
-    MultiSegBit1 = 15,
-    /// Multi-segment position bit 2 (FunIN.16)
-    MultiSegBit2 = 16,
-    /// Multi-segment position bit 3 (FunIN.17)
-    MultiSegBit3 = 17,
-    /// Multi-segment command trigger (FunIN.18)
-    MultiSegTrigger = 18,
-    /// Internal position command trigger (FunIN.19)
-    InternalPosTrigger = 19,
+    /// Servo enable (FunIN.1)
+    ServoEnable = 1,
+    /// Alarm reset signal (edge valid function) (FunIN.2)
+    AlarmResetSignal = 2,
+    /// Proportional action switching/gain switching (FunIN.3)
+    ProportionalActionSwitch = 3,
+    /// Main/auxiliary running command switching (FunIN.4)
+    MainAuxiliaryCommandSwitch = 4,
+    /// Pulse deviation clearing (FunIN.5)
+    PulseDeviationClear = 5,
+    /// Multi-segment running command switch CMD1 (FunIN.6)
+    MultiSegCommandSwitch1 = 6,
+    /// Multi-segment running command switch CMD2 (FunIN.7)
+    MultiSegCommandSwitch2 = 7,
+    /// Multi-segment running command switch CMD3 (FunIN.8)
+    MultiSegCommandSwitch3 = 8,
+    /// Multi-segment running command switch CMD4 (FunIN.9)
+    MultiSegCommandSwitch4 = 9,
+    /// P-Mode switching (FunIN.10)
+    PModeSwitch = 10,
+    /// Zero fixed function enable signal (FunIN.11)
+    ZeroFixedEnable = 11,
+    /// Pulse prohibition (FunIN.12)
+    PulseProhibition = 12,
+    /// Forward overtravel (FunIN.13)
+    ForwardOvertravel = 13,
+    /// Backward overtravel (FunIN.14)
+    BackwardOvertravel = 14,
+    /// Forward external torque limit ON (FunIN.15)
+    ForwardExternalTorqueLimit = 15,
+    /// Backward external torque limit ON (FunIN.16)
+    BackwardExternalTorqueLimit = 16,
+    /// Forward jog (FunIN.17)
+    ForwardJog2 = 17,
+    /// Backward jog (FunIN.18)
+    BackwardJog = 18,
+    /// Position step input DI variable (FunIN.19)
+    PositionStepInputDI = 19,
+    /// Handwheel magnification signal 1 (reserved) (FunIN.20)
+    HandwheelMagnification1 = 20,
+    /// Handwheel magnification signal 2 (reserved) (FunIN.21)
+    HandwheelMagnification2 = 21,
+    /// Handwheel enable signal (reserved) (FunIN.22)
+    HandwheelEnable = 22,
+    /// Electronic gear selection (FunIN.23)
+    ElectronicGearSelection = 23,
+    /// Position instruction reverse (FunIN.24)
+    PositionInstructionReverse = 24,
+    /// Speed command reverse (FunIN.25)
+    SpeedCommandReverse = 25,
+    /// Torque command reverse (FunIN.26)
+    TorqueCommandReverse = 26,
+    /// Handwheel A signal (reserved) (FunIN.27)
+    HandwheelSignalA = 27,
+    /// Handwheel B signal (reserved) (FunIN.28)
+    HandwheelSignalB = 28,
+    /// Internal multi-segment position enable signal (FunIN.29)
+    InternalMultiSegmentPositionEnable = 29,
+    /// Interrupt fixed length completion external confirmation signal (FunIN.30)
+    InterruptFixedLengthCompletionExtConfirm = 30,
+    /// Interrupt fixed length prohibition (FunIN.31)
+    InterruptFixedLengthProhibition = 31,
+    /// Home switch signal (FunIN.32)
+    HomeSwitchSignal = 32,
+    /// Homing enable signal (FunIN.33)
+    HomingEnableSignal = 33,
+    /// Emergency stop (FunIN.34)
+    EmergencyStop = 34,
+    /// Position loop constant speed running (FunIN.35)
+    PositionLoopConstantSpeedRunning = 35,
+    /// Interrupt fixed length reset (FunIN.36)
+    InterruptFixedLengthReset = 36,
+    /// Interrupt fixed length operation pause (FunIN.37)
+    InterruptFixedLengthOperationPause = 37,
+    /// Multi-segment torque running command switching 1 (FunIN.38)
+    MultiSegmentTorqueCommandSwitch1 = 38,
+    /// Multi-step torque running command switching 1 (FunIN.39)
+    MultiStepTorqueCommandSwitch1 = 39,
+    /// Speed Mode A1 command direction switching 1 (reserved) (FunIN.40)
+    SpeedModeA1SW1 = 40,
+    /// Speed Mode A1 command direction switching 2 (reserved) (FunIN.41)
+    SpeedModeA1SW2 = 41,
 }
 
 impl From<DiFunction> for u16 {
@@ -294,28 +341,52 @@ pub enum DoFunction {
     None = 0,
     /// Servo ready (FunOUT.1)
     ServoReady = 1,
-    /// Servo alarm (FunOUT.2)
-    ServoAlarm = 2,
-    /// Positioning complete (FunOUT.3)
-    PositioningComplete = 3,
-    /// Zero speed (FunOUT.4)
-    ZeroSpeed = 4,
-    /// Speed consistent (FunOUT.5)
-    SpeedConsistent = 5,
-    /// Torque limit (FunOUT.6)
-    TorqueLimit = 6,
-    /// Speed limit (FunOUT.7)
-    SpeedLimit = 7,
-    /// Servo warning (FunOUT.8)
-    ServoWarning = 8,
-    /// Homing complete (FunOUT.9)
-    HomingComplete = 9,
-    /// In-position close (FunOUT.10)
-    InPositionClose = 10,
-    /// Lock release signal (FunOUT.11) - Required for DO2
-    LockRelease = 11,
-    /// Motor running (FunOUT.12)
-    MotorRunning = 12,
+    /// Fault output signal (FunOUT.2)
+    FaultOutputSignal = 2,
+    /// Warning output signal (FunOUT.3)
+    WarningOutputSignal = 3,
+    /// Motor rotation output signal (FunOUT.4)
+    MotorRotationOutputSignal = 4,
+    /// Zero speed signal (FunOUT.5)
+    ZeroSpeedSignal = 5,
+    /// Speed consistent (FunOUT.6)
+    SpeedConsistent = 6,
+    /// Position completed (FunOUT.7)
+    PositionCompleted = 7,
+    /// Positioning approach signal (FunOUT.8)
+    PositioningApproachSignal = 8,
+    /// Torque limit signal (FunOUT.9)
+    TorqueLimitSignal = 9,
+    /// Speed limit signal (FunOUT.10)
+    SpeedLimitSignal = 10,
+    /// Brake release signal output (FunOUT.11)
+    BrakeReleaseSignalOutput = 11,
+    /// Torque feedback reaches specified range (FunOUT.12)
+    TorqueFeedbackReachesRange = 12,
+    /// Speed feedback reaches specified range (FunOUT.13)
+    SpeedFeedbackReachesRange = 13,
+    /// Angle recognition completed (FunOUT.14)
+    AngleRecognitionCompleted = 14,
+    /// Output 3-bit alarm code (reserved) (FunOUT.15)
+    OutputAlarmCode1 = 15,
+    /// Output 3-bit alarm code (reserved) (FunOUT.16)
+    OutputAlarmCode2 = 16,
+    /// Output 3-bit alarm code (reserved) (FunOUT.17)
+    OutputAlarmCode3 = 17,
+    /// Interrupt fixed length completion signal (FunOUT.18)
+    InterruptFixedLengthCompletionSignal = 18,
+    /// Homing completion signal (FunOUT.19)
+    HomingCompletionSignal = 19,
+    /// Reserved (FunOUT.20)
+    Reserved20 = 20,
+    /// Multi-segment position completion command 1 output (FunOUT.21)
+    MultiSegmentPositionCompletion1 = 21,
+    /// Multi-segment position completion command 2 output (FunOUT.22)
+    MultiSegmentPositionCompletion2 = 22,
+    /// Multi-segment position completion command 3 output (FunOUT.23)
+    MultiSegmentPositionCompletion3 = 23,
+    /// Multi-segment position completion command 4 output (FunOUT.24)
+    MultiSegmentPositionCompletion4 = 24,
 }
 
 impl From<DoFunction> for u16 {
@@ -711,37 +782,37 @@ impl ServoConfig {
             encoder_resolution: 131072, // 17-bit = 2^17
         }
     }
-    
+
     /// Set control mode
     pub fn with_control_mode(mut self, mode: ControlMode) -> Self {
         self.control_mode = mode;
         self
     }
-    
+
     /// Set direction
     pub fn with_direction(mut self, direction: Direction) -> Self {
         self.direction = direction;
         self
     }
-    
+
     /// Set maximum speed
     pub fn with_max_speed(mut self, rpm: u16) -> Self {
         self.max_speed = rpm;
         self
     }
-    
+
     /// Set rated current
     pub fn with_rated_current(mut self, current: f32) -> Self {
         self.rated_current = current;
         self
     }
-    
+
     /// Set encoder type
     pub fn with_encoder_type(mut self, encoder: EncoderType) -> Self {
         self.encoder_type = encoder;
         self
     }
-    
+
     /// Set encoder resolution
     pub fn with_encoder_resolution(mut self, resolution: u32) -> Self {
         self.encoder_resolution = resolution;
@@ -778,25 +849,25 @@ impl SegmentConfig {
             wait_time: 0,
         })
     }
-    
+
     /// Set displacement
     pub fn with_displacement(mut self, displacement: i32) -> Self {
         self.displacement = displacement;
         self
     }
-    
+
     /// Set speed
     pub fn with_speed(mut self, rpm: u16) -> Self {
         self.speed = rpm;
         self
     }
-    
+
     /// Set acceleration/deceleration time
     pub fn with_accel_decel(mut self, ms: u16) -> Self {
         self.accel_decel_time = ms;
         self
     }
-    
+
     /// Set wait time
     pub fn with_wait_time(mut self, time: u16) -> Self {
         self.wait_time = time;
@@ -840,31 +911,31 @@ impl HomingConfig {
         self.mode = mode;
         self
     }
-    
+
     /// Set high speed
     pub fn with_high_speed(mut self, rpm: u16) -> Self {
         self.high_speed = rpm;
         self
     }
-    
+
     /// Set low speed
     pub fn with_low_speed(mut self, rpm: u16) -> Self {
         self.low_speed = rpm;
         self
     }
-    
+
     /// Set acceleration limit
     pub fn with_accel_limit(mut self, ms: u16) -> Self {
         self.accel_limit = ms;
         self
     }
-    
+
     /// Set timeout
     pub fn with_timeout(mut self, ms: u16) -> Self {
         self.timeout = ms;
         self
     }
-    
+
     /// Set home offset
     pub fn with_offset(mut self, offset: i32) -> Self {
         self.offset = offset;
@@ -899,13 +970,13 @@ impl JogConfig {
         self.speed = rpm;
         self
     }
-    
+
     /// Set acceleration time
     pub fn with_accel(mut self, ms: u16) -> Self {
         self.accel_time = ms;
         self
     }
-    
+
     /// Set deceleration time
     pub fn with_decel(mut self, ms: u16) -> Self {
         self.decel_time = ms;
