@@ -713,6 +713,33 @@ impl From<HomingMode> for u16 {
     }
 }
 
+/// Homing enable control mode (P16.08)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u16)]
+pub enum HomingEnableMode {
+    /// Mode 0: Turn off the Homing function
+    #[default]
+    Disabled = 0,
+    /// Mode 1: Enable the Homing function by inputting the HomingStart signal through DI
+    EnableViaDI = 1,
+    /// Mode 2: Start return to Home immediately after power-on
+    StartAfterPowerOn = 2,
+    /// Mode 3: Start return to Home immediately
+    StartImmediately = 3,
+    /// Mode 4: Take the current position as the Home
+    CurrentPositionAsHome = 4,
+    /// Mode 5: Set the Home through DI trigger
+    SetHomeThroughDI = 5,
+    /// Mode 6: Host computer homing
+    HostComputerHoming = 6,
+}
+
+impl From<HomingEnableMode> for u16 {
+    fn from(mode: HomingEnableMode) -> Self {
+        mode as u16
+    }
+}
+
 // ============================================================================
 // P18 - Status Enums
 // ============================================================================

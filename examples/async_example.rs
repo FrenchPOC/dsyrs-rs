@@ -10,7 +10,7 @@
 //! Run with: cargo run --example async_example
 
 use dsyrs::{
-    DsyrsClient, ServoConfig, ControlMode, Direction, HomingMode, HomingConfig, ServoState,
+    DsyrsClient, ServoConfig, ControlMode, Direction, HomingMode, HomingConfig, HomingEnableMode, ServoState,
 };
 use tokio_modbus::prelude::*;
 use tokio_serial::SerialStream;
@@ -72,6 +72,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example: Configure homing
     println!("\n--- Homing Configuration ---");
+    
+    // Set homing enable mode first
+    servo.set_homing_enable_mode(HomingEnableMode::HostComputerHoming).await?;
+    println!("Homing enable mode set to: Host Computer Homing");
+    
     let homing_config = HomingConfig {
         mode: HomingMode::Mode4,          // Mode 4: Forward + limit switch
         high_speed: 500,                  // Search speed: 500 rpm

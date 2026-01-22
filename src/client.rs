@@ -614,6 +614,19 @@ impl DsyrsClient {
     // P16 - SPECIAL FUNCTIONS (HOMING)
     // ========================================================================
 
+    /// Set homing enable control mode (P16.08)
+    /// - 0: Turn off the Homing function
+    /// - 1: Enable the Homing function by inputting the HomingStart signal through DI
+    /// - 2: Start return to Home immediately after power-on
+    /// - 3: Start return to Home immediately
+    /// - 4: Take the current position as the Home
+    /// - 5: Set the Home through DI trigger
+    /// - 6: Host computer homing
+    pub async fn set_homing_enable_mode(&mut self, mode: HomingEnableMode) -> Result<()> {
+        self.write_register(registers::P16_HOMING_ENABLE_MODE, mode.into())
+            .await
+    }
+
     /// Set homing mode (P16.09)
     pub async fn set_homing_mode(&mut self, mode: HomingMode) -> Result<()> {
         self.write_register(registers::P16_HOMING_MODE, mode.into())
