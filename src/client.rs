@@ -680,6 +680,12 @@ impl DsyrsClient {
         Ok(ServoState::from(data[0]))
     }
 
+    /// Get raw servo status register value (P18.00)
+    pub async fn get_servo_state_raw(&mut self) -> Result<u16> {
+        let data = self.read_registers(registers::P18_SERVO_STATUS, 1).await?;
+        Ok(data[0])
+    }
+
     /// Get motor speed feedback (P18.01, rpm)
     pub async fn get_speed(&mut self) -> Result<i16> {
         let data = self

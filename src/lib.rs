@@ -166,10 +166,10 @@
 //! }
 //! ```
 
-pub mod registers;
-pub mod types;
 pub mod client;
+pub mod registers;
 pub mod sync;
+pub mod types;
 
 // Re-export main types
 pub use client::DsyrsClient;

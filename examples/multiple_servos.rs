@@ -7,12 +7,10 @@
 //!
 //! Run with: cargo run --example multiple_servos
 
-use dsyrs::{
-    DsyrsClient, ServoConfig, ControlMode, Direction, ServoState,
-};
+use dsyrs::{ControlMode, Direction, DsyrsClient, ServoConfig, ServoState};
+use std::time::Duration;
 use tokio_modbus::prelude::*;
 use tokio_serial::SerialStream;
-use std::time::Duration;
 
 /// Servo IDs on the bus
 const SERVO_IDS: [u8; 3] = [1, 2, 3];
@@ -27,11 +25,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baud_rate = 115200;
 
     println!("Connecting to {} at {} baud...", port_name, baud_rate);
-    println!("Managing {} servos with IDs: {:?}\n", SERVO_IDS.len(), SERVO_IDS);
+    println!(
+        "Managing {} servos with IDs: {:?}\n",
+        SERVO_IDS.len(),
+        SERVO_IDS
+    );
 
     // Open serial port with timeout
-    let builder = tokio_serial::new(port_name, baud_rate)
-        .timeout(Duration::from_millis(100));
+    let builder = tokio_serial::new(port_name, baud_rate).timeout(Duration::from_millis(100));
     let port = SerialStream::open(&builder)?;
 
     // Create initial Modbus RTU context (with first slave ID)
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for &slave_id in &SERVO_IDS {
         // Switch to this slave
         ctx.set_slave(Slave::from(slave_id));
-        
+
         // Create configuration for this servo
         // Note: rated_current, encoder_type, encoder_resolution, and motor_model_code are optional.
         // If not specified, they will be read from the servo during init().
@@ -56,12 +57,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Note: In a real application, you might want to store these clients
         let mut servo = DsyrsClient::new(ctx, config);
         servo.init().await?;
-        
+
         // Read status to verify connection
         let state = servo.get_servo_state().await?;
         let speed = servo.get_speed().await?;
         println!("Servo {}: State={:?}, Speed={} rpm", slave_id, state, speed);
-        
+
         // Get context back for reuse
         ctx = servo.into_context();
     }
@@ -70,10 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Reading All Servo Status ---");
     for &slave_id in &SERVO_IDS {
         ctx.set_slave(Slave::from(slave_id));
-        
+
         let config = ServoConfig::new(slave_id);
         let mut servo = DsyrsClient::new(ctx, config);
-        
+
         let status = servo.get_status().await?;
         println!("\nServo {} Status:", slave_id);
         println!("  State: {:?}", status.state);
@@ -81,26 +82,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Position: {} pulses", status.position);
         println!("  Torque: {:.1}%", status.torque as f32 * 0.1);
         println!("  Bus Voltage: {:.1} V", status.bus_voltage as f32 * 0.1);
-        
+
         ctx = servo.into_context();
     }
 
     // Coordinated motion example
     println!("\n--- Coordinated Motion Demo ---");
     println!("Running all servos at different speeds...\n");
-    
-    let speeds: [i16; 3] = [100, 200, 300];  // Different speeds for each servo
-    
+
+    let speeds: [i16; 3] = [100, 200, 300]; // Different speeds for each servo
+
     // Set speeds for all servos
     for (i, &slave_id) in SERVO_IDS.iter().enumerate() {
         ctx.set_slave(Slave::from(slave_id));
-        
+
         let config = ServoConfig::new(slave_id);
         let mut servo = DsyrsClient::new(ctx, config);
-        
+
         servo.set_speed_command(speeds[i]).await?;
         println!("Servo {}: Set speed to {} rpm", slave_id, speeds[i]);
-        
+
         ctx = servo.into_context();
     }
 
@@ -108,17 +109,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nMonitoring servo speeds...");
     for iteration in 1..=6 {
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         print!("{}ms: ", iteration * 500);
         for &slave_id in &SERVO_IDS {
             ctx.set_slave(Slave::from(slave_id));
-            
+
             let config = ServoConfig::new(slave_id);
             let mut servo = DsyrsClient::new(ctx, config);
-            
+
             let speed = servo.get_speed().await?;
             print!("S{}={} rpm  ", slave_id, speed);
-            
+
             ctx = servo.into_context();
         }
         println!();
@@ -128,13 +129,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Stopping All Servos ---");
     for &slave_id in &SERVO_IDS {
         ctx.set_slave(Slave::from(slave_id));
-        
+
         let config = ServoConfig::new(slave_id);
         let mut servo = DsyrsClient::new(ctx, config);
-        
+
         servo.set_speed_command(0).await?;
         println!("Servo {}: Stopped", slave_id);
-        
+
         ctx = servo.into_context();
     }
 
@@ -146,16 +147,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_stopped = true;
     for &slave_id in &SERVO_IDS {
         ctx.set_slave(Slave::from(slave_id));
-        
+
         let config = ServoConfig::new(slave_id);
         let mut servo = DsyrsClient::new(ctx, config);
-        
+
         let speed = servo.get_speed().await?;
-        let stopped = speed.abs() < 5;  // Within 5 rpm tolerance
-        println!("Servo {}: Speed={} rpm {}", slave_id, speed, 
-                 if stopped { "✓" } else { "⚠ still moving" });
+        let stopped = speed.abs() < 5; // Within 5 rpm tolerance
+        println!(
+            "Servo {}: Speed={} rpm {}",
+            slave_id,
+            speed,
+            if stopped { "✓" } else { "⚠ still moving" }
+        );
         all_stopped = all_stopped && stopped;
-        
+
         ctx = servo.into_context();
     }
 
@@ -170,10 +175,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut any_fault = false;
     for &slave_id in &SERVO_IDS {
         ctx.set_slave(Slave::from(slave_id));
-        
+
         let config = ServoConfig::new(slave_id);
         let mut servo = DsyrsClient::new(ctx, config);
-        
+
         let state = servo.get_servo_state().await?;
         if state == ServoState::Error || state == ServoState::Alarm {
             println!("Servo {}: ✗ ERROR/ALARM detected", slave_id);
@@ -181,7 +186,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("Servo {}: ✓ OK ({:?})", slave_id, state);
         }
-        
+
         ctx = servo.into_context();
     }
 
